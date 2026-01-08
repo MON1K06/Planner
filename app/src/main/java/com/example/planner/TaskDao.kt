@@ -19,7 +19,7 @@ interface TaskDao {
     suspend fun deleteTask(task: Task)
 
     @Update
-    suspend fun updateTask(task: Task)
+    suspend fun updateTask(task: Task) // Это уже было, пригодится для переименования задачи
 
     // --- КАТЕГОРИИ ---
     @Query("SELECT * FROM categories ORDER BY id ASC")
@@ -27,6 +27,9 @@ interface TaskDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategory(category: Category)
+
+    @Update
+    suspend fun updateCategory(category: Category) // <--- ДОБАВИЛИ ЭТО
 
     @Delete
     suspend fun deleteCategory(category: Category)
