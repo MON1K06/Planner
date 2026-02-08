@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [Task::class, Category::class], version = 2)
+@Database(entities = [Task::class, Category::class], version = 3) // <--- ВЕРСИЯ 3
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
 
@@ -18,9 +18,9 @@ abstract class AppDatabase : RoomDatabase() {
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "minimal_planner_db" // Я сменил имя файла БД, чтобы не было конфликтов
+                    "minimal_planner_db"
                 )
-                    .fallbackToDestructiveMigration() // Если версия старая - удалит и создаст новую
+                    .fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
             }
         }

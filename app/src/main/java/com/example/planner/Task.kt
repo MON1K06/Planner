@@ -7,7 +7,8 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "categories")
 data class Category(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val name: String
+    val name: String,
+    val sortOrder: Int = 0 // <--- НОВОЕ ПОЛЕ
 )
 
 @Entity(
@@ -17,7 +18,7 @@ data class Category(
             entity = Category::class,
             parentColumns = ["id"],
             childColumns = ["categoryId"],
-            onDelete = ForeignKey.CASCADE // Если удалить категорию, удалятся и задачи
+            onDelete = ForeignKey.CASCADE
         )
     ]
 )
@@ -25,6 +26,6 @@ data class Task(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val title: String,
     val isCompleted: Boolean = false,
-    val date: Long? = null, // Дата в миллисекундах
-    val categoryId: Int? = null // Привязка к разделу (может быть null, если задача "Общая")
+    val date: Long? = null,
+    val categoryId: Int? = null
 )
