@@ -33,6 +33,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.animation.animateContentSize
+import androidx.compose.runtime.key
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -140,20 +147,16 @@ fun ListViewContent(viewModel: TaskViewModel, onAddTaskToCategory: (Category?) -
         }
     }
 
-    // Состояния для меню и редактирования
+    // Состояния для диалогов (оставляем как было)
     var categoryForOptions by remember { mutableStateOf<Category?>(null) }
     var showGeneralOptions by remember { mutableStateOf(false) }
-
-    // Новые состояния для подтверждения удаления/очистки
     var categoryToClear by remember { mutableStateOf<Category?>(null) }
     var categoryToDeleteConfirm by remember { mutableStateOf<Category?>(null) }
     var isGeneralToClear by remember { mutableStateOf(false) }
-
     var taskToDelete by remember { mutableStateOf<Task?>(null) }
     var categoryToEdit by remember { mutableStateOf<Category?>(null) }
     var showEditGeneralTitle by remember { mutableStateOf(false) }
     var taskToEdit by remember { mutableStateOf<Task?>(null) }
-
     var draggingItemIndex by remember { mutableStateOf<Int?>(null) }
     var draggingItemOffset by remember { mutableStateOf(0f) }
 
@@ -163,24 +166,31 @@ fun ListViewContent(viewModel: TaskViewModel, onAddTaskToCategory: (Category?) -
 
         // --- 1. Раздел "Общие" ---
         val generalTasks = allTasks.filter { it.categoryId == null }
+        val generalActiveCount = generalTasks.count { !it.isCompleted }
         val isGeneralExpanded = expandedIds.contains(-1)
 
-        stickyHeader {
+        // ИСПРАВЛЕНИЕ: Заменили stickyHeader на item
+        item {
             CategoryCard(
                 title = generalTitle,
+                activeCount = generalActiveCount,
                 isExpanded = isGeneralExpanded,
                 onToggleExpand = { viewModel.toggleCategoryExpand(-1) },
                 isDragging = false,
                 content = {
                     if (isGeneralExpanded) {
-                        if (generalTasks.isNotEmpty()) {
-                            Column {
+                        Column(
+                            modifier = Modifier.animateContentSize(animationSpec = androidx.compose.animation.core.tween(600))
+                        ) {
+                            if (generalTasks.isNotEmpty()) {
                                 generalTasks.forEach { task ->
-                                    TaskItem(task, { viewModel.toggleTask(task) }, { taskToDelete = task }, { taskToEdit = task })
+                                    key(task.id) {
+                                        TaskItem(task, { viewModel.toggleTask(task) }, { taskToDelete = task }, { taskToEdit = task })
+                                    }
                                 }
+                            } else {
+                                Text("Пусто", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, bottom = 8.dp))
                             }
-                        } else {
-                            Text("Пусто", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, bottom = 8.dp))
                         }
                     }
                 },
@@ -194,10 +204,11 @@ fun ListViewContent(viewModel: TaskViewModel, onAddTaskToCategory: (Category?) -
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // --- 2. Перетаскиваемые категории ---
+        // --- 2. Перетаскиваемые категории (остается без изменений) ---
         itemsIndexed(localCategories, key = { _, cat -> cat.id }) { index, category ->
             val isExpanded = expandedIds.contains(category.id)
             val catTasks = allTasks.filter { it.categoryId == category.id }
+            val catActiveCount = catTasks.count { !it.isCompleted }
             val isDragging = index == draggingItemIndex
 
             Box(
@@ -235,16 +246,22 @@ fun ListViewContent(viewModel: TaskViewModel, onAddTaskToCategory: (Category?) -
             ) {
                 CategoryCard(
                     title = category.name,
+                    activeCount = catActiveCount,
                     isExpanded = isExpanded,
                     onToggleExpand = { viewModel.toggleCategoryExpand(category.id) },
                     isDragging = isDragging,
                     content = {
                         if (isExpanded && !isDragging) {
-                            Column {
-                                catTasks.forEach { task ->
-                                    TaskItem(task, { viewModel.toggleTask(task) }, { taskToDelete = task }, { taskToEdit = task })
-                                }
-                                if (catTasks.isEmpty()) {
+                            Column(
+                                modifier = Modifier.animateContentSize(animationSpec = androidx.compose.animation.core.tween(600))
+                            ) {
+                                if (catTasks.isNotEmpty()) {
+                                    catTasks.forEach { task ->
+                                        key(task.id) {
+                                            TaskItem(task, { viewModel.toggleTask(task) }, { taskToDelete = task }, { taskToEdit = task })
+                                        }
+                                    }
+                                } else {
                                     Text("Пусто", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, bottom = 8.dp))
                                 }
                             }
@@ -261,7 +278,8 @@ fun ListViewContent(viewModel: TaskViewModel, onAddTaskToCategory: (Category?) -
         }
     }
 
-    // --- 1. Меню действий для обычных разделов ---
+    // --- Диалоги (вставьте сюда блок диалогов из прошлого ответа, он не менялся) ---
+    // (categoryForOptions, showGeneralOptions, удаление, подтверждение очистки и т.д.)
     if (categoryForOptions != null) {
         AlertDialog(
             onDismissRequest = { categoryForOptions = null },
@@ -269,32 +287,16 @@ fun ListViewContent(viewModel: TaskViewModel, onAddTaskToCategory: (Category?) -
             confirmButton = { },
             dismissButton = {
                 Column(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Button(
-                        onClick = { categoryToEdit = categoryForOptions; categoryForOptions = null },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
-                    ) { Text("Переименовать") }
+                    Button(onClick = { categoryToEdit = categoryForOptions; categoryForOptions = null }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) { Text("Переименовать") }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        // Вместо мгновенного удаления открываем диалог подтверждения
-                        onClick = { categoryToClear = categoryForOptions; categoryForOptions = null },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-                    ) { Text("Очистить задачи") }
+                    Button(onClick = { categoryToClear = categoryForOptions; categoryForOptions = null }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)) { Text("Очистить задачи") }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        // Вместо мгновенного удаления открываем диалог подтверждения
-                        onClick = { categoryToDeleteConfirm = categoryForOptions; categoryForOptions = null },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                    ) { Text("Удалить раздел") }
+                    Button(onClick = { categoryToDeleteConfirm = categoryForOptions; categoryForOptions = null }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) { Text("Удалить раздел") }
                     TextButton(onClick = { categoryForOptions = null }) { Text("Отмена", color = Color.Black) }
                 }
             }
         )
     }
-
-    // --- 2. Меню действий для раздела "Общие" ---
     if (showGeneralOptions) {
         AlertDialog(
             onDismissRequest = { showGeneralOptions = false },
@@ -302,107 +304,26 @@ fun ListViewContent(viewModel: TaskViewModel, onAddTaskToCategory: (Category?) -
             confirmButton = {},
             dismissButton = {
                 Column(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Button(
-                        onClick = { showEditGeneralTitle = true; showGeneralOptions = false },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
-                    ) { Text("Переименовать") }
+                    Button(onClick = { showEditGeneralTitle = true; showGeneralOptions = false }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) { Text("Переименовать") }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = { isGeneralToClear = true; showGeneralOptions = false },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-                    ) { Text("Очистить задачи") }
+                    Button(onClick = { isGeneralToClear = true; showGeneralOptions = false }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)) { Text("Очистить задачи") }
                     TextButton(onClick = { showGeneralOptions = false }) { Text("Отмена", color = Color.Black) }
                 }
             }
         )
     }
-
-    // --- 3. ДИАЛОГИ ПОДТВЕРЖДЕНИЯ ---
-
-    // Подтверждение удаления раздела
-    if (categoryToDeleteConfirm != null) {
-        AlertDialog(
-            onDismissRequest = { categoryToDeleteConfirm = null },
-            title = { Text("Удалить раздел?") },
-            text = { Text("Раздел \"${categoryToDeleteConfirm!!.name}\" и все задачи в нем будут безвозвратно удалены.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteCategory(categoryToDeleteConfirm!!)
-                        categoryToDeleteConfirm = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                ) { Text("Удалить") }
-            },
-            dismissButton = {
-                TextButton(onClick = { categoryToDeleteConfirm = null }) { Text("Отмена", color = Color.Black) }
-            }
-        )
-    }
-
-    // Подтверждение очистки задач в обычном разделе
-    if (categoryToClear != null) {
-        AlertDialog(
-            onDismissRequest = { categoryToClear = null },
-            title = { Text("Очистить задачи?") },
-            text = { Text("Все задачи в разделе \"${categoryToClear!!.name}\" будут удалены.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.clearCategoryTasks(categoryToClear!!.id)
-                        categoryToClear = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
-                ) { Text("Очистить") }
-            },
-            dismissButton = {
-                TextButton(onClick = { categoryToClear = null }) { Text("Отмена", color = Color.Black) }
-            }
-        )
-    }
-
-    // Подтверждение очистки задач в Общих
-    if (isGeneralToClear) {
-        AlertDialog(
-            onDismissRequest = { isGeneralToClear = false },
-            title = { Text("Очистить раздел?") },
-            text = { Text("Все задачи в разделе \"$generalTitle\" будут удалены.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.clearCategoryTasks(null)
-                        isGeneralToClear = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
-                ) { Text("Очистить") }
-            },
-            dismissButton = {
-                TextButton(onClick = { isGeneralToClear = false }) { Text("Отмена", color = Color.Black) }
-            }
-        )
-    }
-
-    // --- 4. Остальные диалоги (редактирование текста и удаление одной задачи) ---
-    if (taskToDelete != null) {
-        AlertDialog(onDismissRequest = { taskToDelete = null }, title = { Text("Удалить задачу?") }, confirmButton = { Button(onClick = { viewModel.deleteTask(taskToDelete!!); taskToDelete = null }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) { Text("Да") } }, dismissButton = { TextButton(onClick = { taskToDelete = null }) { Text("Нет", color = Color.Black) } })
-    }
-    if (categoryToEdit != null) {
-        InputTextDialog("Переименовать", categoryToEdit!!.name, "Название", { categoryToEdit = null }) { viewModel.renameCategory(categoryToEdit!!, it) }
-    }
-    if (showEditGeneralTitle) {
-        InputTextDialog("Переименовать раздел", generalTitle, "Название", { showEditGeneralTitle = false }) { viewModel.renameGeneralCategory(it) }
-    }
-    if (taskToEdit != null) {
-        InputTextDialog("Изменить задачу", taskToEdit!!.title, "Текст", { taskToEdit = null }) { viewModel.renameTask(taskToEdit!!, it) }
-    }
+    if (categoryToDeleteConfirm != null) { AlertDialog(onDismissRequest = { categoryToDeleteConfirm = null }, title = { Text("Удалить раздел?") }, text = { Text("Раздел \"${categoryToDeleteConfirm!!.name}\" и все задачи в нем будут безвозвратно удалены.") }, confirmButton = { Button(onClick = { viewModel.deleteCategory(categoryToDeleteConfirm!!); categoryToDeleteConfirm = null }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) { Text("Удалить") } }, dismissButton = { TextButton(onClick = { categoryToDeleteConfirm = null }) { Text("Отмена", color = Color.Black) } }) }
+    if (categoryToClear != null) { AlertDialog(onDismissRequest = { categoryToClear = null }, title = { Text("Очистить задачи?") }, text = { Text("Все задачи в разделе \"${categoryToClear!!.name}\" будут удалены.") }, confirmButton = { Button(onClick = { viewModel.clearCategoryTasks(categoryToClear!!.id); categoryToClear = null }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) { Text("Очистить") } }, dismissButton = { TextButton(onClick = { categoryToClear = null }) { Text("Отмена", color = Color.Black) } }) }
+    if (isGeneralToClear) { AlertDialog(onDismissRequest = { isGeneralToClear = false }, title = { Text("Очистить раздел?") }, text = { Text("Все задачи в разделе \"$generalTitle\" будут удалены.") }, confirmButton = { Button(onClick = { viewModel.clearCategoryTasks(null); isGeneralToClear = false }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) { Text("Очистить") } }, dismissButton = { TextButton(onClick = { isGeneralToClear = false }) { Text("Отмена", color = Color.Black) } }) }
+    if (taskToDelete != null) { AlertDialog(onDismissRequest = { taskToDelete = null }, title = { Text("Удалить задачу?") }, confirmButton = { Button(onClick = { viewModel.deleteTask(taskToDelete!!); taskToDelete = null }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) { Text("Да") } }, dismissButton = { TextButton(onClick = { taskToDelete = null }) { Text("Нет", color = Color.Black) } }) }
+    if (categoryToEdit != null) { InputTextDialog("Переименовать", categoryToEdit!!.name, "Название", { categoryToEdit = null }) { viewModel.renameCategory(categoryToEdit!!, it) } }
+    if (showEditGeneralTitle) { InputTextDialog("Переименовать раздел", generalTitle, "Название", { showEditGeneralTitle = false }) { viewModel.renameGeneralCategory(it) } }
+    if (taskToEdit != null) { InputTextDialog("Изменить задачу", taskToEdit!!.title, "Текст", { taskToEdit = null }) { viewModel.renameTask(taskToEdit!!, it) } }
 }
-
-
 @Composable
 fun CategoryCard(
     title: String,
+    activeCount: Int, // <-- Новый параметр
     isExpanded: Boolean,
     onToggleExpand: () -> Unit,
     isDragging: Boolean,
@@ -426,19 +347,42 @@ fun CategoryCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Default.KeyboardArrowDown, "Expand", modifier = Modifier.rotate(rotation))
+
+                // Название раздела
                 Text(
                     text = title,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f).padding(start = 8.dp)
+                    modifier = Modifier.padding(start = 8.dp)
                 )
+
+                // Счетчик задач (Оранжевый круг)
+                if (activeCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .size(24.dp) // Размер кружка
+                            .background(Color(0xFFFFA500), androidx.compose.foundation.shape.CircleShape), // Оранжевый цвет
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = activeCount.toString(),
+                            color = Color.Black,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Растягиваем пространство, чтобы кнопки ушли вправо
+                Spacer(modifier = Modifier.weight(1f))
+
                 headerContent()
             }
             content()
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarViewContent(viewModel: TaskViewModel, calendarState: DatePickerState, onAddTaskForDate: (Long) -> Unit) {
@@ -468,40 +412,235 @@ fun CalendarViewContent(viewModel: TaskViewModel, calendarState: DatePickerState
 
 @Composable
 fun TaskItem(task: Task, onToggle: () -> Unit, onDelete: () -> Unit, onEdit: () -> Unit) {
-    val dateFormatter = SimpleDateFormat("dd.MM", Locale.getDefault())
-    Card(shape = MaterialTheme.shapes.small, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(1.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp, horizontal = 8.dp)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = task.isCompleted, onCheckedChange = { onToggle() }, colors = CheckboxDefaults.colors(checkedColor = Color.Black))
-            Column(modifier = Modifier.weight(1f).padding(horizontal = 8.dp).clickable { onEdit() }) {
-                Text(task.title, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null, color = if (task.isCompleted) Color.Gray else Color.Black)
-                if (task.date != null) Text("📅 ${dateFormatter.format(Date(task.date))}", fontSize = 12.sp, color = Color.Gray)
+    // Изменили формат: сначала часы:минуты, затем в скобках день.месяц
+    val dateFormatter = SimpleDateFormat("HH:mm (dd.MM)", Locale.getDefault())
+
+    Card(
+        shape = MaterialTheme.shapes.small,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(1.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp, horizontal = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = task.isCompleted,
+                onCheckedChange = { onToggle() },
+                colors = CheckboxDefaults.colors(checkedColor = Color.Black)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp)
+                    .clickable { onEdit() }
+            ) {
+                Text(
+                    task.title,
+                    textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
+                    color = if (task.isCompleted) Color.Gray else Color.Black
+                )
+                // Если дата есть, показываем её в новом формате без лишних иконок
+                if (task.date != null) {
+                    Text(
+                        text = dateFormatter.format(Date(task.date)),
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
             }
-            IconButton(onClick = onDelete) { Icon(Icons.Default.Close, "Delete", tint = Color.LightGray) }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Close, "Delete", tint = Color.LightGray)
+            }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddTaskFullDialog(initialCategory: Category?, initialDate: Long?, categories: List<Category>, onDismiss: () -> Unit, onConfirm: (String, Long?, Int?) -> Unit) {
+fun AddTaskFullDialog(
+    initialCategory: Category?,
+    initialDate: Long?,
+    categories: List<Category>,
+    onDismiss: () -> Unit,
+    onConfirm: (String, Long?, Int?) -> Unit
+) {
     var text by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(initialDate) }
     var selectedCatId by remember { mutableStateOf(initialCategory?.id) }
+
+    // Состояния для показа диалогов
     var showDatePicker by remember { mutableStateOf(false) }
-    val dateState = rememberDatePickerState(initialSelectedDateMillis = initialDate ?: System.currentTimeMillis())
+    var showTimePicker by remember { mutableStateOf(false) }
 
-    if (showDatePicker) { DatePickerDialog(onDismissRequest = { showDatePicker = false }, confirmButton = { TextButton(onClick = { selectedDate = dateState.selectedDateMillis; showDatePicker = false }) { Text("ОК", color = Color.Black) } }) { DatePicker(state = dateState) } }
+    // Состояния самих пикеров
+    val dateState = rememberDatePickerState(
+        initialSelectedDateMillis = initialDate ?: System.currentTimeMillis()
+    )
+    val timeState = rememberTimePickerState(
+        initialHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
+        initialMinute = Calendar.getInstance().get(Calendar.MINUTE),
+        is24Hour = true
+    )
 
+    // 1. Диалог выбора ДАТЫ
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDatePicker = false
+                    showTimePicker = true // После даты сразу открываем время
+                }) {
+                    Text("Далее", color = Color.Black)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Отмена", color = Color.Black)
+                }
+            }
+        ) {
+            DatePicker(state = dateState)
+        }
+    }
+
+    // 2. Диалог выбора ВРЕМЕНИ
+    if (showTimePicker) {
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    // Собираем дату и время вместе
+                    val dateMillis = dateState.selectedDateMillis
+                    if (dateMillis != null) {
+                        val calendar = Calendar.getInstance()
+                        // DatePicker возвращает UTC полночь, корректируем:
+                        val utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+                        utcCalendar.timeInMillis = dateMillis
+
+                        // Устанавливаем год/месяц/день
+                        calendar.set(
+                            utcCalendar.get(Calendar.YEAR),
+                            utcCalendar.get(Calendar.MONTH),
+                            utcCalendar.get(Calendar.DAY_OF_MONTH)
+                        )
+                        // Устанавливаем часы и минуты из TimePicker
+                        calendar.set(Calendar.HOUR_OF_DAY, timeState.hour)
+                        calendar.set(Calendar.MINUTE, timeState.minute)
+
+                        selectedDate = calendar.timeInMillis
+                    }
+                    showTimePicker = false
+                }) {
+                    Text("ОК", color = Color.Black)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) {
+                    Text("Отмена", color = Color.Black)
+                }
+            },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Выберите время", modifier = Modifier.padding(bottom = 16.dp))
+                    TimePicker(state = timeState)
+                }
+            }
+        )
+    }
+
+    // Основной диалог создания задачи
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("Новая задача"); Button(onClick = { onConfirm(text, selectedDate, selectedCatId); onDismiss() }, colors = ButtonDefaults.buttonColors(containerColor = Color.Black), shape = MaterialTheme.shapes.small, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)) { Text("Сохранить") } } },
-        text = { Column { OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text("Что сделать?") }, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Black, focusedLabelColor = Color.Black), modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = { showDatePicker = true }, colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black), border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray), modifier = Modifier.fillMaxWidth()) { val dateStr = if (selectedDate != null) SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(selectedDate!!)) else "Выбрать дату"; Text("📅 $dateStr") }
-            Spacer(modifier = Modifier.height(8.dp)); Text("Раздел:", fontWeight = FontWeight.Bold)
-            Column { Row(verticalAlignment = Alignment.CenterVertically) { RadioButton(selected = selectedCatId == null, onClick = { selectedCatId = null }, colors = RadioButtonDefaults.colors(selectedColor = Color.Black)); Text("Общее") }
-                categories.forEach { cat -> Row(verticalAlignment = Alignment.CenterVertically) { RadioButton(selected = selectedCatId == cat.id, onClick = { selectedCatId = cat.id }, colors = RadioButtonDefaults.colors(selectedColor = Color.Black)); Text(cat.name) } } } } },
-        confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена", color = Color.Black) } }
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Новая задача")
+                Button(
+                    onClick = {
+                        onConfirm(text, selectedDate, selectedCatId)
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                    shape = MaterialTheme.shapes.small,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                ) {
+                    Text("Сохранить")
+                }
+            }
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Что сделать?") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Black,
+                        focusedLabelColor = Color.Black
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Кнопка выбора даты и времени
+                Button(
+                    onClick = { showDatePicker = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val dateText = if (selectedDate != null) {
+                        SimpleDateFormat("HH:mm (dd.MM.yyyy)", Locale.getDefault()).format(Date(selectedDate!!))
+                    } else {
+                        "Выбрать дату и время"
+                    }
+                    // Убрали иконку календаря из текста кнопки
+                    Text(dateText)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Раздел:", fontWeight = FontWeight.Bold)
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = selectedCatId == null,
+                            onClick = { selectedCatId = null },
+                            colors = RadioButtonDefaults.colors(selectedColor = Color.Black)
+                        )
+                        Text("Общее")
+                    }
+                    categories.forEach { cat ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = selectedCatId == cat.id,
+                                onClick = { selectedCatId = cat.id },
+                                colors = RadioButtonDefaults.colors(selectedColor = Color.Black)
+                            )
+                            Text(cat.name)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена", color = Color.Black)
+            }
+        }
     )
 }
 

@@ -6,10 +6,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TaskDao {
     // --- ЗАДАЧИ ---
-    @Query("SELECT * FROM tasks ORDER BY isCompleted ASC, id DESC")
+    @Query("SELECT * FROM tasks ORDER BY isCompleted ASC, date ASC, id DESC")
     fun getAllTasks(): Flow<List<Task>>
 
-    @Query("SELECT * FROM tasks WHERE date >= :startOfDay AND date < :endOfDay")
+    @Query("SELECT * FROM tasks WHERE date >= :startOfDay AND date < :endOfDay ORDER BY isCompleted ASC, date ASC")
     fun getTasksByDate(startOfDay: Long, endOfDay: Long): Flow<List<Task>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -28,7 +28,6 @@ interface TaskDao {
     suspend fun deleteGeneralTasks()
 
     // --- КАТЕГОРИИ ---
-    // Сортируем по sortOrder, чтобы порядок сохранялся
     @Query("SELECT * FROM categories ORDER BY sortOrder ASC")
     fun getCategories(): Flow<List<Category>>
 
@@ -39,7 +38,7 @@ interface TaskDao {
     suspend fun updateCategory(category: Category)
 
     @Update
-    suspend fun updateCategories(categories: List<Category>) // <--- ДЛЯ СОХРАНЕНИЯ ПОРЯДКА
+    suspend fun updateCategories(categories: List<Category>)
 
     @Delete
     suspend fun deleteCategory(category: Category)

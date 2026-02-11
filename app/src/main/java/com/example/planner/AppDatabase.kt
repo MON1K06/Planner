@@ -5,7 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [Task::class, Category::class], version = 3) // <--- ВЕРСИЯ 3
+// ВАЖНО: Проверьте, что entities = [Task::class, Category::class]
+@Database(entities = [Task::class, Category::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
 
@@ -15,13 +16,16 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                Room.databaseBuilder(
+                val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "minimal_planner_db"
+                    "planner_database"
                 )
-                    .fallbackToDestructiveMigration()
-                    .build().also { INSTANCE = it }
+                    // Если меняли структуру БД, можно добавить .fallbackToDestructiveMigration() для тестов
+                    // .fallbackToDestructiveMigration()
+                    .build()
+                INSTANCE = instance
+                instance
             }
         }
     }
