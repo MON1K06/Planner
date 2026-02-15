@@ -27,5 +27,6 @@ data class Task(
     val title: String,
     val isCompleted: Boolean = false,
     val date: Long? = null,
-    val categoryId: Int? = null
+    val categoryId: Int? = null,
+    val isWeekTask: Boolean = false // <--- НОВОЕ ПОЛЕ: true, если задача на всю неделю
 )
